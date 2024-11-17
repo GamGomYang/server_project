@@ -1,0 +1,1 @@
+"paper", "chair", "desk", "book", "note", "computer", "cloth", "closet", "sign", "door", "room", "pencil", "pen", "pants", "shop", "building", "keyboard", "dictionary", "mouse", "cellphone", "speaker", "hospital", "car", "bicyle", "cup"
