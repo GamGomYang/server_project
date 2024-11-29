@@ -8,7 +8,7 @@
 
 #define PORT 12345
 #define MAX_CLIENTS 2
-#define BUF_SIZE 2048
+#define BUF_SIZE 4096 // 버퍼 크기를 늘림
 #define MAX_WORDS_PER_CATEGORY 50
 #define NUM_CATEGORIES 3
 #define NUM_GAME_MODES 2
@@ -18,21 +18,22 @@
 const char *game_modes[] = {"1. 멀티플레이 광산게임", "2. 멀티플레이 긴글 게임"};
 
 // 단어 카테고리 및 데이터
+// 게임 데이터 따로 분리해야함
 const char *categories[] = {"동물", "나라", "사자성어"};
 const char *words[NUM_CATEGORIES][MAX_WORDS_PER_CATEGORY] = {
-    // 동물 카테고리 단어 50개
+    // 동물 카테고리 단어
     {"기린", "코끼리", "사자", "얼룩말", "강아지", "고양이", "호랑이", "여우", "늑대", "곰",
      "다람쥐", "토끼", "햄스터", "사슴", "코알라", "캥거루", "하마", "코뿔소", "침팬지", "고릴라",
      "팬더", "돌고래", "상어", "고래", "오징어", "문어", "게", "가재", "새우", "복어",
      "메기", "붕어", "송어", "연어", "잉어", "독수리", "매", "참새", "비둘기", "까치",
      "까마귀", "오리", "거위", "닭", "칠면조", "부엉이", "올빼미", "앵무새", "타조", "플라밍고"},
-    // 나라 카테고리 단어 50개
+    // 나라 카테고리 단어
     {"한국", "미국", "일본", "중국", "프랑스", "독일", "영국", "이탈리아", "스페인", "포르투갈",
      "러시아", "캐나다", "멕시코", "브라질", "아르헨티나", "호주", "뉴질랜드", "인도", "파키스탄", "이란",
      "이라크", "이집트", "남아프리카공화국", "나이지리아", "케냐", "탄자니아", "모로코", "알제리", "터키", "그리스",
      "네덜란드", "벨기에", "스웨덴", "노르웨이", "덴마크", "핀란드", "폴란드", "체코", "오스트리아", "스위스",
      "헝가리", "루마니아", "불가리아", "우크라이나", "벨라루스", "카자흐스탄", "우즈베키스탄", "몽골", "베트남", "태국"},
-    // 사자성어 카테고리 단어 50개
+    // 사자성어 카테고리 단어
     {"유비무환", "천고마비", "동병상련", "일석이조", "오리무중", "구사일생", "권선징악", "고진감래", "각골난망", "감언이설",
      "격세지감", "견물생심", "과유불급", "금상첨화", "기고만장", "대기만성", "동문서답", "동상이몽", "마이동풍", "백문불여일견",
      "배은망덕", "백발백중", "사면초가", "산전수전", "새옹지마", "설상가상", "속수무책", "수수방관", "안하무인", "양자택일",
@@ -44,7 +45,7 @@ int word_counts[NUM_CATEGORIES] = {50, 50, 50};
 
 // 카테고리별 긴글 목록
 const char *passages[NUM_CATEGORIES][MAX_PASSAGES_PER_CATEGORY] = {
-    // 동물 카테고리 긴글 10개
+    // 동물 카테고리
     {
         "기린은 아프리카 사바나의 상징적인 동물로, 긴 목과 독특한 무늬를 가지고 있습니다.",
         "코끼리는 지능이 높고 사회적인 동물로 알려져 있으며, 가족 단위로 무리를 이루어 생활합니다.",
@@ -56,7 +57,7 @@ const char *passages[NUM_CATEGORIES][MAX_PASSAGES_PER_CATEGORY] = {
         "곰은 다양한 서식지에서 살아가며, 계절에 따라 행동 패턴이 크게 달라집니다.",
         "토끼는 빠른 번식력과 민첩성으로 자연에서 중요한 역할을 합니다.",
         "캥거루는 호주 고유의 동물로, 강력한 뒷다리와 꼬리를 이용해 효율적으로 이동합니다."},
-    // 나라 카테고리 긴글 10개
+    // 나라 카테고리
     {
         "한국은 동아시아에 위치한 나라로, 풍부한 역사와 문화유산을 자랑합니다.",
         "미국은 세계적인 경제와 문화의 중심지로, 다양한 인종과 문화가 공존하는 나라입니다.",
@@ -68,18 +69,18 @@ const char *passages[NUM_CATEGORIES][MAX_PASSAGES_PER_CATEGORY] = {
         "이탈리아는 예술, 음식, 패션 등 다양한 분야에서 세계적인 영향을 미치는 나라입니다.",
         "스페인은 활기찬 축제와 풍부한 역사로 유명하며, 아름다운 해변을 자랑합니다.",
         "포르투갈은 매력적인 해안선과 독특한 건축물로 관광객들에게 인기가 많습니다."},
-    // 사자성어 카테고리 긴글 10개
+    // 사자성어 카테고리
     {
-        "유비무환(有備無患)은 준비를 잘 하면 근심이 없다는 의미로, 사전에 철저한 준비의 중요성을 강조합니다.",
-        "천고마비(天高馬肥)는 하늘이 높고 말이 비옥하다는 뜻으로, 좋은 시기를 의미합니다.",
-        "동병상련(同病相憐)은 같은 병을 앓는 사람이 서로를 불쌍히 여긴다는 뜻으로, 공감의 중요성을 나타냅니다.",
-        "일석이조(一石二鳥)는 한 개의 돌로 두 마리의 새를 잡는다는 뜻으로, 한 가지 노력으로 두 가지 이득을 본다는 의미입니다.",
-        "오리무중(瓢盧無中)은 펭귄이 없는 중이란 뜻으로, 상황이 불확실하고 방향을 잃었다는 의미입니다.",
-        "구사일생(九死一生)은 아홉 번 죽을 고비를 넘기고 한 번 살아난다는 뜻으로, 매우 위험한 상황에서 벗어남을 의미합니다.",
-        "권선징악(勸善懲惡)은 선을 권장하고 악을 처벌한다는 뜻으로, 도덕적 규범의 중요성을 강조합니다.",
-        "고진감래(苦盡甘來)는 고생 끝에 낙이 온다는 뜻으로, 어려운 시기가 지나면 좋은 일이 온다는 의미입니다.",
-        "각골난망(刻骨難忘)은 뼈를 새길 만큼 잊기 어렵다는 뜻으로, 깊은 인상을 남긴 일을 의미합니다.",
-        "감언이설(甘言利說)은 달콤한 말과 이익을 위한 설득을 의미하며, 속임수를 경계해야 함을 나타냅니다."}};
+        "유비무환 준비를 잘 하면 근심이 없다는 의미로, 사전에 철저한 준비의 중요성을 강조합니다.",
+        "천고마비 하늘이 높고 말이 비옥하다는 뜻으로, 좋은 시기를 의미합니다.",
+        "동병상련 같은 병을 앓는 사람이 서로를 불쌍히 여긴다는 뜻으로, 공감의 중요성을 나타냅니다.",
+        "일석이조 한 개의 돌로 두 마리의 새를 잡는다는 뜻으로, 한 가지 노력으로 두 가지 이득을 본다는 의미입니다.",
+        "오리무중 펭귄이 없는 중이란 뜻으로, 상황이 불확실하고 방향을 잃었다는 의미입니다.",
+        "구사일생 아홉 번 죽을 고비를 넘기고 한 번 살아난다는 뜻으로, 매우 위험한 상황에서 벗어남을 의미합니다.",
+        "권선징악 선을 권장하고 악을 처벌한다는 뜻으로, 도덕적 규범의 중요성을 강조합니다.",
+        "고진감래 고생 끝에 낙이 온다는 뜻으로, 어려운 시기가 지나면 좋은 일이 온다는 의미입니다.",
+        "각골난망 뼈를 새길 만큼 잊기 어렵다는 뜻으로, 깊은 인상을 남긴 일을 의미합니다.",
+        "감언이설 달콤한 말과 이익을 위한 설득을 의미하며, 속임수를 경계해야 함을 나타냅니다."}};
 
 // 카테고리별 긴글 개수
 int passages_count[NUM_CATEGORIES] = {10, 10, 10};
@@ -96,8 +97,9 @@ int connected_clients = 0;
 pthread_cond_t start_cond = PTHREAD_COND_INITIALIZER;
 pthread_cond_t mode_cond = PTHREAD_COND_INITIALIZER;
 
+// 게임 모드 선택
 int game_mode_choices[MAX_CLIENTS] = {-1, -1};
-int game_mode = -1; // 선택된 게임 모드
+int game_mode = -1;
 
 char game_words[MAX_WORDS_PER_CATEGORY][BUF_SIZE]; // 선택된 단어 저장
 int word_count = 0;
@@ -120,13 +122,21 @@ void broadcast_message(const char *message) {
 // 단어 리스트와 점수 브로드캐스트 (광산게임 전용)
 void broadcast_words_and_scores() {
     char buffer[BUF_SIZE * 2] = {0};
-    snprintf(buffer, sizeof(buffer), "남은 단어: ");
+
+    // 남은 단어 목록을 특별한 태그로 전송
+    // 단어 목록 태그
+    snprintf(buffer, sizeof(buffer), "");
     for (int i = 0; i < word_count; i++) {
         strcat(buffer, game_words[i]);
         if (i < word_count - 1)
             strcat(buffer, ", ");
     }
-    strcat(buffer, "\n점수: ");
+    strcat(buffer, "\n");
+    broadcast_message(buffer);
+
+    // 점수 정보를 특별한 태그로 전송
+    memset(buffer, 0, sizeof(buffer));
+    strcat(buffer, "SCORES:");
     for (int i = 0; i < MAX_CLIENTS; i++) {
         char temp[32];
         snprintf(temp, sizeof(temp), "클라이언트%d: %d ", i + 1, scores[i]);
@@ -176,33 +186,16 @@ void select_category(int client_id) {
             }
 
             // 선택된 단어 리스트 브로드캐스트
-            snprintf(buffer, sizeof(buffer), "선택된 단어: ");
-            for (int i = 0; i < word_count; i++) {
-                strcat(buffer, game_words[i]);
-                if (i < word_count - 1)
-                    strcat(buffer, ", ");
-            }
-            strcat(buffer, "\n");
-            broadcast_message(buffer);
+            broadcast_words_and_scores();
         }
 
-        // 카운트다운 메시지 (긴글 게임에서는 첫 번째만)
-        if (game_mode == 1 && current_passage_index == 0) {
-            for (int i = 5; i > 0; i--) {
-                snprintf(buffer, sizeof(buffer), "%d\n", i);
-                broadcast_message(buffer);
-                sleep(1); // 1초 대기
-            }
-            broadcast_message("게임 시작!\n");
-        } else if (game_mode == 0) {
-            // 광산게임에서도 카운트다운 추가
-            for (int i = 5; i > 0; i--) {
-                snprintf(buffer, sizeof(buffer), "%d\n", i);
-                broadcast_message(buffer);
-                sleep(1); // 1초 대기
-            }
-            broadcast_message("게임 시작!\n");
+        // 카운트다운 메시지
+        for (int i = 5; i > 0; i--) {
+            snprintf(buffer, sizeof(buffer), "%d\n", i);
+            broadcast_message(buffer);
+            sleep(1); // 1초 대기
         }
+        broadcast_message("게임 시작!\n");
 
         // 게임 모드에 따른 추가 작업
         if (game_mode == 1) {
@@ -211,14 +204,14 @@ void select_category(int client_id) {
             int passage_index = rand() % passages_count[selected_category];
             strncpy(current_passage, passages[selected_category][passage_index], BUF_SIZE);
 
-            // 선택된 긴글을 클라이언트에게 공유 (접두사 제거)
+            // 선택된 긴글을 클라이언트에게 공유
             snprintf(buffer, sizeof(buffer), "%s\n", current_passage);
             broadcast_message(buffer);
         }
 
     } else {
         send(client_sockets[client_id], "잘못된 선택입니다. 다시 선택하세요.\n", BUF_SIZE, 0);
-        select_category(client_id); // 재귀 호출로 다시 선택
+        select_category(client_id); // 재귀 호출
     }
 }
 
@@ -302,7 +295,7 @@ void play_long_text_game(int client_id, int client_socket) {
                 initial_countdown_done = 1;
             }
 
-            // 현재 선택된 긴글 전송 (접두사 제거)
+            // 현재 선택된 긴글 전송
             snprintf(buffer, sizeof(buffer), "%s\n", current_passage);
             broadcast_message(buffer);
             passage_solved = 1; // 구절 전송 후 기다림
@@ -460,8 +453,13 @@ void *handle_client(void *arg) {
 
             // 선택 완료 대기
             pthread_mutex_lock(&lock);
-            pthread_cond_wait(&start_cond, &lock);
+            while (selected_category == -1) {
+                pthread_cond_wait(&start_cond, &lock);
+            }
             pthread_mutex_unlock(&lock);
+
+            // 단어와 점수 정보 수신
+            // 광산게임에서는 select_category에서 이미 단어 목록과 점수 정보를 전송함
         }
 
         // 게임 시작 메시지
@@ -489,7 +487,7 @@ void *handle_client(void *arg) {
             }
             pthread_mutex_unlock(&lock);
 
-            // 클라이언트에게 선택된 긴글 공유 (접두사 제거)
+            // 클라이언트에게 선택된 긴글 공유
             snprintf(buffer, sizeof(buffer), "%s\n", current_passage);
             send(client_socket, buffer, strlen(buffer), 0);
         }
