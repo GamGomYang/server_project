@@ -524,7 +524,7 @@ int main() {
         perror("소켓 생성 실패");
         exit(1);
     }
-
+    // tcp/ip 방식 사용 -> 사용자의 정답을 확인해야하기 때문
     server_addr.sin_family = AF_INET;
     server_addr.sin_addr.s_addr = INADDR_ANY;
     server_addr.sin_port = htons(PORT);
