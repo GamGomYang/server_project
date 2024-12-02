@@ -730,8 +730,8 @@ void displayGrids(Cell own_grid[GRID_SIZE][GRID_SIZE], Cell opponent_grid[GRID_S
     }
 
     /* Display Opponent's Grid */
+    // fix point : 여기에서 출력이 안되어지는 문제가 지속적으로 발생
     mvprintw(0, 2 + (GRID_SIZE * 2 + 10), "상대의 그리드");
-    /* Column Indices */
     mvprintw(1, 2 + (GRID_SIZE * 2 + 10), "  ");
     for (int i = 0; i < GRID_SIZE; i++) {
         printw(" %d", i + 1);
@@ -739,39 +739,44 @@ void displayGrids(Cell own_grid[GRID_SIZE][GRID_SIZE], Cell opponent_grid[GRID_S
     printw("\n");
 
     for (int i = 0; i < GRID_SIZE; i++) {
-        /* Row Indices */
+        /* 행 인덱스 */
         mvprintw(2 + i, 2 + (GRID_SIZE * 2 + 10), "%d ", i + 1);
         for (int j = 0; j < GRID_SIZE; j++) {
-            char display_char = '~'; // Default to water
+            char display_char = '~'; // 기본값은 물
 
             if (opponent_grid != NULL) {
-                if (opponent_grid[i][j].aState == HIT)
-                    display_char = 'X'; // Hit
-                else if (opponent_grid[i][j].aState == MISS)
-                    display_char = 'O'; // Miss
+                if (opponent_grid[i][j].aState == HIT) {
+                    display_char = 'X'; // 명중
+                    write_log("좌표 (%d, %d)에서 Hit로 처리됨\n", i + 1, j + 1);
+                } else if (opponent_grid[i][j].aState == MISS) {
+                    display_char = 'O'; // 빗나감
+                    write_log("좌표 (%d, %d)에서 Miss로 처리됨\n", i + 1, j + 1);
+                }
             }
 
-            /* Highlight Cursor Position */
+            /* 커서 위치 강조 */
             if (attack_phase && your_turn && i == cursor.y && j == cursor.x) {
-                attron(A_REVERSE); // Highlight
+                attron(A_REVERSE); // 강조
                 printw("%c ", display_char);
                 attroff(A_REVERSE);
             } else {
-                /* Apply Color */
+                /* 색상 적용 */
                 if (display_char == 'X')
-                    attron(COLOR_PAIR(2)); // Hit Color
+                    attron(COLOR_PAIR(2)); // 명중 색상
                 else if (display_char == 'O')
-                    attron(COLOR_PAIR(3)); // Miss Color
+                    attron(COLOR_PAIR(3)); // 빗나감 색상
                 else
-                    attron(COLOR_PAIR(5)); // Water Color
+                    attron(COLOR_PAIR(5)); // 물 색상
 
                 printw("%c ", display_char);
-                /* Reset Color */
+                /* 색상 초기화 */
                 attroff(COLOR_PAIR(2) | COLOR_PAIR(3) | COLOR_PAIR(5));
             }
+            write_log("상대의 그리드 (%d, %d): %c\n", i + 1, j + 1, display_char);
         }
         printw("\n");
     }
+    write_log("상대의 그리드 출력 완료\n");
 
     /* Display Turn Information */
     if (attack_phase) {
@@ -904,27 +909,30 @@ void sendGridToServer(Cell own_grid[GRID_SIZE][GRID_SIZE]) {
  * Handles user input and game state updates in multiplayer mode.
  */
 void inputLoopMultiplayer(Cell own_grid[GRID_SIZE][GRID_SIZE], Cell opponent_grid[GRID_SIZE][GRID_SIZE]) {
-    Cursor cursor = {0, 0}; // Initial cursor position
+    Cursor cursor = {0, 0}; // 초기 커서 위치
     bool your_turn = false;
-    bool attack_phase = true; // After ship placement
+    bool attack_phase = true; // 배치 단계 이후 공격 단계
     bool running = true;
     fd_set read_fds;
     struct timeval tv;
 
-    /* Initialize opponent grid to all UNSHOT */
+    int last_attack_x = -1; // 마지막 공격한 x 좌표 (0-based index)
+    int last_attack_y = -1; // 마지막 공격한 y 좌표 (0-based index)
+
+    /* 상대 그리드를 UNSHOT으로 초기화 */
     initGrid(opponent_grid);
 
-    /* Set getch to non-blocking */
+    /* getch를 논블로킹 모드로 설정 */
     nodelay(stdscr, TRUE);
     keypad(stdscr, TRUE);
 
     while (running) {
-        /* Initialize fd_set */
+        /* fd_set 초기화 */
         FD_ZERO(&read_fds);
         FD_SET(sock_fd, &read_fds);
         FD_SET(STDIN_FILENO, &read_fds);
 
-        /* Set timeout (0.1 seconds) */
+        /* 타임아웃 설정 (0.1초) */
         tv.tv_sec = 0;
         tv.tv_usec = 100000;
 
@@ -937,15 +945,15 @@ void inputLoopMultiplayer(Cell own_grid[GRID_SIZE][GRID_SIZE], Cell opponent_gri
             break;
         }
 
-        /* Handle data from server */
+        /* 서버로부터 데이터 수신 처리 */
         if (FD_ISSET(sock_fd, &read_fds)) {
-            /* Receive server message */
+            /* 서버 메시지 수신 */
             char buf_read[256];
             ssize_t ret = readLine(sock_fd, buf_read, sizeof(buf_read));
             if (ret > 0) {
                 write_log("Received from server: %s", buf_read);
 
-                /* Handle turn-related messages */
+                /* 턴 관련 메시지 처리 */
                 if (strcmp(buf_read, "YOUR_TURN\n") == 0) {
                     your_turn = true;
                     mvprintw(GRID_SIZE + 9, 0, "당신의 턴.");
@@ -953,36 +961,41 @@ void inputLoopMultiplayer(Cell own_grid[GRID_SIZE][GRID_SIZE], Cell opponent_gri
                     your_turn = false;
                     mvprintw(GRID_SIZE + 9, 0, "상대의 턴.");
                 }
-                /* Handle attack results */
+                /* 공격 결과 처리 */
                 else if (strncmp(buf_read, "Hit", 3) == 0 || strncmp(buf_read, "Miss", 4) == 0) {
-                    int x, y;
-                    sscanf(buf_read, "%*s (%d %d)", &x, &y);
-                    x -= 1; // 0-based index
-                    y -= 1;
+                    int x = last_attack_x;
+                    int y = last_attack_y;
                     if (x >= 0 && x < GRID_SIZE && y >= 0 && y < GRID_SIZE) {
                         if (strncmp(buf_read, "Hit", 3) == 0) {
                             opponent_grid[y][x].aState = HIT;
                         } else if (strncmp(buf_read, "Miss", 4) == 0) {
                             opponent_grid[y][x].aState = MISS;
                         }
+
+                        /* 공격 좌표 초기화 */
+                        last_attack_x = -1;
+                        last_attack_y = -1;
+
+                        displayGrids(own_grid, opponent_grid, cursor, your_turn, attack_phase);
+                        refresh();
                     }
                     mvprintw(GRID_SIZE + 10, 0, "공격 결과: %s", buf_read);
                     write_log("Updated opponent grid at (%d, %d): %s", x + 1, y + 1, buf_read);
                 }
-                /* Handle game over messages */
+                /* 게임 종료 메시지 처리 */
                 else if (strncmp(buf_read, "You won", 7) == 0 || strncmp(buf_read, "You lost", 8) == 0) {
                     mvprintw(GRID_SIZE + 11, 0, "%s", buf_read);
                     write_log("Game over: %s", buf_read);
                     running = false;
                 }
-                /* Handle opponent's attack */
+                /* 상대의 공격 처리 */
                 else {
                     if (strncmp(buf_read, "Attack", 6) == 0) {
                         int x, y;
                         sscanf(buf_read, "Attack (%d %d)", &x, &y);
                         x -= 1;
                         y -= 1;
-                        /* Receive attack result from server */
+                        /* 서버로부터 공격 결과 수신 */
                         char attack_result[256];
                         ret = readLine(sock_fd, attack_result, sizeof(attack_result));
                         if (ret > 0) {
@@ -1001,7 +1014,7 @@ void inputLoopMultiplayer(Cell own_grid[GRID_SIZE][GRID_SIZE], Cell opponent_gri
                 }
                 refresh();
             } else if (ret == 0) {
-                /* Server disconnected */
+                /* 서버 연결 종료 */
                 mvprintw(GRID_SIZE + 12, 0, "서버가 연결을 끊었습니다.");
                 write_log("Server disconnected.\n");
                 refresh();
@@ -1009,7 +1022,7 @@ void inputLoopMultiplayer(Cell own_grid[GRID_SIZE][GRID_SIZE], Cell opponent_gri
             }
         }
 
-        /* Handle user input */
+        /* 사용자 입력 처리 */
         if (FD_ISSET(STDIN_FILENO, &read_fds)) {
             if (attack_phase && your_turn) {
                 int ch = getch();
@@ -1034,7 +1047,7 @@ void inputLoopMultiplayer(Cell own_grid[GRID_SIZE][GRID_SIZE], Cell opponent_gri
                 case KEY_ENTER: {
                     int x = cursor.x + 1; // 1-based index
                     int y = cursor.y + 1;
-                    /* Check if already attacked */
+                    /* 이미 공격한 위치인지 확인 */
                     if (opponent_grid[y - 1][x - 1].aState != UNSHOT) {
                         mvprintw(GRID_SIZE + 13, 0, "이미 공격한 위치입니다. 다른 위치를 선택하세요.");
                         write_log("Attempted to attack already attacked location (%d, %d)\n", x, y);
@@ -1042,7 +1055,11 @@ void inputLoopMultiplayer(Cell own_grid[GRID_SIZE][GRID_SIZE], Cell opponent_gri
                         sleep(1);
                         break;
                     }
-                    /* Send attack coordinates to server */
+                    /* 공격 좌표 저장 */
+                    last_attack_x = x - 1; // 0-based index로 저장
+                    last_attack_y = y - 1;
+
+                    /* 공격 좌표를 서버에 전송 */
                     char buf_write[20];
                     sprintf(buf_write, "(%d %d)\n", x, y);
                     int write_ret = write(sock_fd, buf_write, strlen(buf_write));
@@ -1070,7 +1087,7 @@ void inputLoopMultiplayer(Cell own_grid[GRID_SIZE][GRID_SIZE], Cell opponent_gri
         }
     }
 
-    /* Update and display grids */
+    /* 그리드 업데이트 및 표시 */
     displayGrids(own_grid, opponent_grid, cursor, your_turn, attack_phase);
 }
 
