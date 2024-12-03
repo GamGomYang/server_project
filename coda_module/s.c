@@ -21,7 +21,7 @@ int current_turn = 0;
 pthread_mutex_t lock = PTHREAD_MUTEX_INITIALIZER;
 pthread_cond_t cond = PTHREAD_COND_INITIALIZER;
 int client_sockets[MAX_PLAYERS];
-
+int ready[MAX_PLAYERS] = {0};
 int compare_tiles(const void *a, const void *b);
 
 void *handle_client(void *arg) {
@@ -38,6 +38,51 @@ void *handle_client(void *arg) {
     }
     pthread_mutex_unlock(&lock);
 
+    while (1) {
+        // ?àò?ùΩ ???Í∏? ?ÉÅ?Éú
+        if (ready[player_id] == 0) {
+            send(client_socket, "Do you accept the game? (y/n): \n", 34, 0);
+            valread = read(client_socket, buffer, 1024);
+            if (valread > 0) {
+                buffer[valread] = '\0';
+                if (buffer[0] == 'y' || buffer[0] == 'Y') {
+                    ready[player_id] = 1;
+                    send(client_socket, "Waiting for the other player...\n", 33, 0);
+                } else {
+                    ready[player_id] = -1;
+                    send(client_socket, "You declined the game. Disconnecting...\n", 40, 0);
+
+                    // ?ã§Î•? ?îå?†à?ù¥?ñ¥?óêÍ≤? ?ïåÎ¶?
+                    pthread_mutex_lock(&lock);
+                    int opponent_socket = client_sockets[1 - player_id];
+                    if (ready[1 - player_id] != -1) {
+                        send(opponent_socket, "The other player declined the game. Disconnecting...\n", 53, 0);
+                        close(opponent_socket); // ?ÉÅ???Î∞? ?ó∞Í≤? Ï¢ÖÎ£å
+                    }
+                    pthread_mutex_unlock(&lock);
+
+                    close(client_socket); // ?òÑ?û¨ ?Å¥?ùº?ù¥?ñ∏?ä∏ ?ó∞Í≤? Ï¢ÖÎ£å
+                    free(client_data);
+                    return NULL;
+                }
+            }
+        }
+
+        pthread_mutex_lock(&lock);
+        if (ready[0] == 1 && ready[1] == 1) {
+            pthread_cond_broadcast(&cond);
+            pthread_mutex_unlock(&lock);
+            break;
+        }
+        if (ready[0] == -1 || ready[1] == -1) {
+            // ?ïúÏ™ΩÏù¥?ùº?èÑ Í±∞Ï†à?ïòÎ©? ?ó∞Í≤? Ï¢ÖÎ£å
+            pthread_mutex_unlock(&lock);
+            close(client_socket);
+            return NULL;
+        }
+        pthread_mutex_unlock(&lock);
+    }
+
     if (player_id == 0) {
         send(client_socket, "Game Start! You are Player 1\n", 29, 0);
     } else {
@@ -51,35 +96,37 @@ void *handle_client(void *arg) {
         }
         pthread_mutex_unlock(&lock);
 
-        if (current_turn == player_id) {
-            char tile_info[2048] = "Opponent's tiles: ";
-            for (int i = 0; i < players[1 - player_id].num_tiles; i++) {
-                if (players[1 - player_id].tiles[i].revealed) {
-                    char tile[10];
-                    sprintf(tile, "[%c%d] ", players[1 - player_id].tiles[i].color, players[1 - player_id].tiles[i].number);
-                    strcat(tile_info, tile);
-                } else {
-                    char tile[10];
-                    sprintf(tile, "[%c?] ", players[1 - player_id].tiles[i].color);
-                    strcat(tile_info, tile);
-                }
-            }
-
-            strcat(tile_info, "\nYour tiles: ");
-            for (int i = 0; i < players[player_id].num_tiles; i++) {
+        // ????ùº ?†ïÎ≥¥Î?? Ï≤òÏùå ?ïú Î≤àÎßå ?†Ñ?Ü°
+        char tile_info[2048] = "Opponent's tiles: ";
+        for (int i = 0; i < players[1 - player_id].num_tiles; i++) {
+            if (players[1 - player_id].tiles[i].revealed) {
                 char tile[10];
-                sprintf(tile, "[%c%d] ", players[player_id].tiles[i].color, players[player_id].tiles[i].number);
+                sprintf(tile, "[%c%d] ", players[1 - player_id].tiles[i].color, players[1 - player_id].tiles[i].number);
+                strcat(tile_info, tile);
+            } else {
+                char tile[10];
+                sprintf(tile, "[%c?] ", players[1 - player_id].tiles[i].color);
                 strcat(tile_info, tile);
             }
-
-            strcat(tile_info, "\nYour turn\n");
-            send(client_socket, tile_info, strlen(tile_info), 0);
         }
 
-        if ((valread = read(client_socket, buffer, 1024)) > 0) {
+        strcat(tile_info, "\nYour tiles: ");
+        for (int i = 0; i < players[player_id].num_tiles; i++) {
+            char tile[10];
+            sprintf(tile, "[%c%d] ", players[player_id].tiles[i].color, players[player_id].tiles[i].number);
+            strcat(tile_info, tile);
+        }
+
+        strcat(tile_info, "\nYour turn\n");
+        send(client_socket, tile_info, strlen(tile_info), 0);
+
+        // ?Å¥?ùº?ù¥?ñ∏?ä∏?ùò Ï∂îÎ¶¨ Î©îÏãúÏß? ?ùΩÍ∏?
+        valread = read(client_socket, buffer, 1024);
+        if (valread > 0) {
             buffer[valread] = '\0';
             printf("Player %d: %s\n", player_id + 1, buffer);
 
+            // Ï∂îÎ¶¨ Ï≤òÎ¶¨
             int guess_index, guess_number;
             char guess_color;
             sscanf(buffer, "%d %c %d", &guess_index, &guess_color, &guess_number);
@@ -88,27 +135,21 @@ void *handle_client(void *arg) {
             if (result) {
                 send(client_socket, "Correct guess!\n", 15, 0);
                 if (check_win(&players[1 - player_id])) {
-                        send(client_socket, "Game Over: You win!\n", 20, 0);
-                        int opponent_socket = client_sockets[1 - player_id];
-                        send(opponent_socket, "Game Over: You lose!\n", 21, 0);
+                    send(client_socket, "Game Over: You win!\n", 20, 0);
+                    int opponent_socket = client_sockets[1 - player_id];
+                    send(opponent_socket, "Game Over: You lose!\n", 21, 0);
                     exit(1);
-                } 
+                }
                 send(client_socket, "Do you want to guess again? (y/n): \n", 38, 0);
                 valread = read(client_socket, buffer, 1024);
-                if (valread > 0) {
-                    buffer[valread] = '\0';
-                    if (buffer[0] == 'n' || buffer[0] == 'N') {
-                        pthread_mutex_lock(&lock);
-                        current_turn = (current_turn + 1) % MAX_PLAYERS;
-                        send(client_sockets[current_turn], "Your turn\n", 10, 0);
-                        pthread_cond_broadcast(&cond);
-                        pthread_mutex_unlock(&lock);
-                    }
+                if (valread > 0 && (buffer[0] == 'n' || buffer[0] == 'N')) {
+                    pthread_mutex_lock(&lock);
+                    current_turn = (current_turn + 1) % MAX_PLAYERS;
+                    pthread_cond_broadcast(&cond);
+                    pthread_mutex_unlock(&lock);
                 }
-
             } else {
                 send(client_socket, "Wrong guess. Drawing a new tile.\n", 34, 0);
-                
                 draw_tile(&players[player_id]);
                 char draw_msg[100];
                 sprintf(draw_msg, "You drew a new tile: [%c%d]\n", players[player_id].tiles[players[player_id].num_tiles - 1].color, players[player_id].tiles[players[player_id].num_tiles - 1].number);
@@ -116,15 +157,11 @@ void *handle_client(void *arg) {
 
                 pthread_mutex_lock(&lock);
                 current_turn = (current_turn + 1) % MAX_PLAYERS;
-                send(client_sockets[current_turn], "Your turn\n", 10, 0);
                 pthread_cond_broadcast(&cond);
                 pthread_mutex_unlock(&lock);
             }
         }
     }
-    close(client_socket);
-    free(client_data);
-    return NULL;
 }
 
 int main() {
@@ -186,3 +223,4 @@ int main() {
 
     return 0;
 }
+

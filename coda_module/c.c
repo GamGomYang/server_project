@@ -12,7 +12,7 @@ int main() {
     int sock = 0;
     struct sockaddr_in serv_addr;
     char buffer[1024] = {0};
-
+    
     if ((sock = socket(AF_INET, SOCK_STREAM, 0)) < 0) {
         printf("\nSocket creation error\n");
         return -1;
@@ -38,7 +38,44 @@ int main() {
         perror("\nConnection Failed");
         return -1;
     }
+    // ASCII 아트 애니메이션
+    char *title_frames[] = {
+    " _____  _____ ______   ___",  
+    "/  __ \|  _  ||  _  \ / _ \ ",
+    "| /  \/| | | || | | |/ /_\ \ ",
+    "| |    | | | || | | ||  _  |",
+    "| \__/\\ \_/ /| |/ / | | | |",
+    "\____/ \___/ |___/   \_| |_/",
+    NULL
+    };
 
+    char *tile_numbers_frames[] = {
+        "┌───┐   ┌───┐   ┌───┐   ┌───┐   ┌───┐   ┌───┐",
+        "│ 0 │   │ 1 │   │ 2 │   │ 3 │   │ 4 │   │ 5 │",
+        "└───┘   └───┘   └───┘   └───┘   └───┘   └───┘",
+        NULL
+    };
+
+    int frame_delay = 200; // 밀리초 단위 프레임 딜레이
+    int i = 0;
+
+    // Title Frame 애니메이션
+    while (title_frames[i]) {
+        mvprintw(LINES / 2 - 4 + i, (COLS - strlen(title_frames[i])) / 2, "%s", title_frames[i]);
+        refresh();
+        usleep(frame_delay * 1000); // Convert to microseconds
+        i++;
+    }
+
+    // Tile Numbers Frame 출력
+    int art = 0;
+    while (tile_numbers_frames[art]) {
+        mvprintw(LINES / 2 + 8 + art, (COLS - strlen(tile_numbers_frames[art])) / 2, "%s", tile_numbers_frames[art]);
+        art++;
+    }
+
+    refresh();
+    sleep(2);
     int output_win_height = LINES - 5;
     int output_win_width = COLS;
     output_win = newwin(output_win_height, output_win_width, 0, 0);
