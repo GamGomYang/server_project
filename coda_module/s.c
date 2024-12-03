@@ -1,3 +1,4 @@
+// server.c
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -32,52 +33,10 @@ void *handle_client(void *arg) {
     int valread;
 
     pthread_mutex_lock(&lock);
-    if (player_count == MAX_PLAYERS) {
-        for (int i = 0; i < MAX_PLAYERS; i++) {
-            send(client_sockets[i], "Do you want to start the game? (y/n): \n", 40, 0);
-        }
+    while (player_count < MAX_PLAYERS) {
+        pthread_cond_wait(&cond, &lock);
     }
     pthread_mutex_unlock(&lock);
-
-    char start_responses[MAX_PLAYERS][10];
-    int responses_received = 0;
-
-    for (int i = 0; i < MAX_PLAYERS; i++) {
-        int valread = read(client_sockets[i], start_responses[i], 10);
-        if (valread > 0) {
-            start_responses[i][valread] = '\0';
-            responses_received++;
-
-            if (strcmp(start_responses[i], "n") == 0) {
-                send(client_sockets[i], "You chose not to start. Disconnecting...\n", 41, 0);
-                close(client_sockets[i]);
-
-                int other_client = (i == 0) ? 1 : 0;
-                send(client_sockets[other_client], "The other player chose not to start. Disconnecting...\n", 57, 0);
-                close(client_sockets[other_client]);
-                player_count = 0;
-                pthread_mutex_lock(&lock);
-                pthread_cond_broadcast(&cond);
-                pthread_mutex_unlock(&lock);
-                exit(0);
-            }
-        }
-    }
-
-    if (responses_received == MAX_PLAYERS &&
-        strcmp(start_responses[0], "y") == 0 &&
-        strcmp(start_responses[1], "y") == 0) {
-        for (int i = 0; i < MAX_PLAYERS; i++) {
-            send(client_sockets[i], "Game Start!\n", 12, 0);
-        }
-        initialize_game(players);
-    } else {
-        for (int i = 0; i < MAX_PLAYERS; i++) {
-            send(client_sockets[i], "Game will not start. Disconnecting...\n", 39, 0);
-            close(client_sockets[i]);
-        }
-        exit(0);
-    }
 
     if (player_id == 0) {
         send(client_socket, "Game Start! You are Player 1\n", 29, 0);
@@ -129,11 +88,11 @@ void *handle_client(void *arg) {
             if (result) {
                 send(client_socket, "Correct guess!\n", 15, 0);
                 if (check_win(&players[1 - player_id])) {
-                    send(client_socket, "Game Over: You win!\n", 20, 0);
-                    int opponent_socket = client_sockets[1 - player_id];
-                    send(opponent_socket, "Game Over: You lose!\n", 21, 0);
+                        send(client_socket, "Game Over: You win!\n", 20, 0);
+                        int opponent_socket = client_sockets[1 - player_id];
+                        send(opponent_socket, "Game Over: You lose!\n", 21, 0);
                     exit(1);
-                }
+                } 
                 send(client_socket, "Do you want to guess again? (y/n): \n", 38, 0);
                 valread = read(client_socket, buffer, 1024);
                 if (valread > 0) {
@@ -146,8 +105,10 @@ void *handle_client(void *arg) {
                         pthread_mutex_unlock(&lock);
                     }
                 }
+
             } else {
                 send(client_socket, "Wrong guess. Drawing a new tile.\n", 34, 0);
+                
                 draw_tile(&players[player_id]);
                 char draw_msg[100];
                 sprintf(draw_msg, "You drew a new tile: [%c%d]\n", players[player_id].tiles[players[player_id].num_tiles - 1].color, players[player_id].tiles[players[player_id].num_tiles - 1].number);
