@@ -12,7 +12,7 @@ int main() {
     int sock = 0;
     struct sockaddr_in serv_addr;
     char buffer[1024] = {0};
-    
+
     if ((sock = socket(AF_INET, SOCK_STREAM, 0)) < 0) {
         printf("\nSocket creation error\n");
         return -1;
@@ -38,7 +38,6 @@ int main() {
         perror("\nConnection Failed");
         return -1;
     }
-    // ASCII 아트 애니메이션
     char *title_frames[] = {
     " _____  _____ ______   ___",  
     "/  __ \|  _  ||  _  \ / _ \ ",
@@ -56,18 +55,16 @@ int main() {
         NULL
     };
 
-    int frame_delay = 200; // 밀리초 단위 프레임 딜레이
+    int frame_delay = 200; 
     int i = 0;
 
-    // Title Frame 애니메이션
     while (title_frames[i]) {
         mvprintw(LINES / 2 - 4 + i, (COLS - strlen(title_frames[i])) / 2, "%s", title_frames[i]);
         refresh();
-        usleep(frame_delay * 1000); // Convert to microseconds
+        usleep(frame_delay * 1000); 
         i++;
     }
 
-    // Tile Numbers Frame 출력
     int art = 0;
     while (tile_numbers_frames[art]) {
         mvprintw(LINES / 2 + 8 + art, (COLS - strlen(tile_numbers_frames[art])) / 2, "%s", tile_numbers_frames[art]);
@@ -98,6 +95,42 @@ int main() {
         if (valread > 0) {
             buffer[valread] = '\0';
 
+            if (strstr(buffer, "Do you accept the game?") != NULL) {
+                char choice[3];
+                mvwprintw(input_win, 1, 1, "Enter your choice (y/n): ");
+                wrefresh(input_win);
+
+                echo();
+                wgetnstr(input_win, choice, sizeof(choice));
+                noecho();
+
+                send(sock, choice, strlen(choice), 0);
+                werase(input_win);
+                box(input_win, 0, 0);
+                wrefresh(input_win);
+            }
+
+            if (strstr(buffer, "Waiting for the other player...") != NULL) {
+                wclear(output_win);
+                mvwprintw(output_win, 1, 1, "Waiting for the other player to accept...");
+                wrefresh(output_win);
+            }
+
+            if (strstr(buffer, "The other player declined the game.") != NULL) {
+                wclear(output_win);
+                mvwprintw(output_win, 1, 1, "The other player declined. Game terminated.");
+                wrefresh(output_win);
+                sleep(2);
+                break;
+            }
+
+            if (strstr(buffer, "You declined the game.") != NULL) {
+                wclear(output_win);
+                mvwprintw(output_win, 1, 1, "You declined. Game terminated.");
+                wrefresh(output_win);
+                sleep(2);
+                break;
+            }
             if (strstr(buffer, "Game Start!") != NULL) {
                 wclear(output_win);
                 wprintw(output_win, "%s", buffer);
@@ -161,3 +194,4 @@ int main() {
     endwin();
     return 0;
 }
+

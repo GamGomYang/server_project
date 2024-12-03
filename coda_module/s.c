@@ -39,7 +39,6 @@ void *handle_client(void *arg) {
     pthread_mutex_unlock(&lock);
 
     while (1) {
-        // ?ˆ˜?½ ???ê¸? ?ƒ?ƒœ
         if (ready[player_id] == 0) {
             send(client_socket, "Do you accept the game? (y/n): \n", 34, 0);
             valread = read(client_socket, buffer, 1024);
@@ -52,16 +51,15 @@ void *handle_client(void *arg) {
                     ready[player_id] = -1;
                     send(client_socket, "You declined the game. Disconnecting...\n", 40, 0);
 
-                    // ?‹¤ë¥? ?”Œ? ˆ?´?–´?—ê²? ?•Œë¦?
                     pthread_mutex_lock(&lock);
                     int opponent_socket = client_sockets[1 - player_id];
                     if (ready[1 - player_id] != -1) {
                         send(opponent_socket, "The other player declined the game. Disconnecting...\n", 53, 0);
-                        close(opponent_socket); // ?ƒ???ë°? ?—°ê²? ì¢…ë£Œ
+                        close(opponent_socket); 
                     }
                     pthread_mutex_unlock(&lock);
 
-                    close(client_socket); // ?˜„?¬ ?´?¼?´?–¸?Š¸ ?—°ê²? ì¢…ë£Œ
+                    close(client_socket); 
                     free(client_data);
                     return NULL;
                 }
@@ -75,7 +73,6 @@ void *handle_client(void *arg) {
             break;
         }
         if (ready[0] == -1 || ready[1] == -1) {
-            // ?•œìª½ì´?¼?„ ê±°ì ˆ?•˜ë©? ?—°ê²? ì¢…ë£Œ
             pthread_mutex_unlock(&lock);
             close(client_socket);
             return NULL;
@@ -96,7 +93,6 @@ void *handle_client(void *arg) {
         }
         pthread_mutex_unlock(&lock);
 
-        // ????¼ ? •ë³´ë?? ì²˜ìŒ ?•œ ë²ˆë§Œ ? „?†¡
         char tile_info[2048] = "Opponent's tiles: ";
         for (int i = 0; i < players[1 - player_id].num_tiles; i++) {
             if (players[1 - player_id].tiles[i].revealed) {
@@ -120,13 +116,11 @@ void *handle_client(void *arg) {
         strcat(tile_info, "\nYour turn\n");
         send(client_socket, tile_info, strlen(tile_info), 0);
 
-        // ?´?¼?´?–¸?Š¸?˜ ì¶”ë¦¬ ë©”ì‹œì§? ?½ê¸?
         valread = read(client_socket, buffer, 1024);
         if (valread > 0) {
             buffer[valread] = '\0';
             printf("Player %d: %s\n", player_id + 1, buffer);
 
-            // ì¶”ë¦¬ ì²˜ë¦¬
             int guess_index, guess_number;
             char guess_color;
             sscanf(buffer, "%d %c %d", &guess_index, &guess_color, &guess_number);
