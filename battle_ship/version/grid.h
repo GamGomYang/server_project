@@ -4,7 +4,6 @@
 #include "ship.h"
 
 #define GRID_SIZE 10
-
 // Represents the state of a cell
 enum State
 {
