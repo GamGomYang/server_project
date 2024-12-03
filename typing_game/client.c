@@ -58,6 +58,76 @@ int game_GAME_DURATION = 90;    // 게임 시간 (초 단위)
 #define GAME_MAX_WORD_LENGTH 30 // 단어의 최대 길이 증가
 #define GAME_MAX_WORDS 100
 
+// 시작화면 애니메이션
+
+void show_start_page() {
+    const char *title[] = {
+        " _____           _    _                      ",
+        "|_   _|         (_)  (_)                     ",
+        "  | |    __ _    _    _   __ _  _ __    __ _ ",
+        "  | |   / _` |  | |  | | / _` || '_ \\  / _` |",
+        "  | |  | (_| |  | |  | || (_| || | | || (_| |",
+        "  \\_/   \\__,_|  | |  | | \\__,_||_| |_| \\__, |",
+        "               _/ | _/ |                __/ |",
+        "              |__/ |__/                |___/ "};
+    const int title_lines = sizeof(title) / sizeof(title[0]);
+    const char *subtitle = "타자의 짱을 가려보자! 타짱";
+    const char *prompt = "<시작하기 - ENTER>";
+
+    // 화면 크기 가져오기
+    int max_y, max_x;
+    getmaxyx(stdscr, max_y, max_x);
+
+    // 제목의 위치 계산
+    int start_y = (max_y - title_lines) / 2 - 2; // 제목을 화면 중앙에 위치
+    int start_x = (max_x - strlen(title[0])) / 2;
+
+    // 서브타이틀과 프롬프트의 위치 계산
+    int subtitle_y = start_y + title_lines + 2;
+    int subtitle_x = (max_x - strlen(subtitle)) / 2;
+    int prompt_y = subtitle_y + 2;
+    int prompt_x = (max_x - strlen(prompt)) / 2;
+
+    // 색상 초기화
+    start_color();
+    init_pair(1, COLOR_RED, COLOR_BLACK);    // 빨간 글씨, 검은 배경
+    init_pair(2, COLOR_WHITE, COLOR_BLACK);  // 서브타이틀용
+    init_pair(3, COLOR_YELLOW, COLOR_BLACK); // 프롬프트용
+
+    // 애니메이션 출력
+    for (int i = 0; i < title_lines; i++) {
+        attron(COLOR_PAIR(1)); // 빨간색 활성화
+        mvprintw(start_y + i, start_x, "%s", title[i]);
+        attroff(COLOR_PAIR(1)); // 색상 비활성화
+        refresh();
+        usleep(100000); // 0.1초 대기 (애니메이션 효과)
+    }
+
+    // 서브타이틀 출력
+    attron(COLOR_PAIR(2) | A_BOLD);
+    mvprintw(subtitle_y, subtitle_x, "%s", subtitle);
+    attroff(COLOR_PAIR(2) | A_BOLD);
+
+    // 프롬프트 출력
+    attron(COLOR_PAIR(3) | A_BLINK);
+    mvprintw(prompt_y, prompt_x, "%s", prompt);
+    attroff(COLOR_PAIR(3) | A_BLINK);
+
+    refresh();
+
+    // ENTER 키 입력 대기
+    while (1) {
+        int ch = getch();
+        if (ch == '\n') { // ENTER 키가 눌리면 루프 종료
+            break;
+        }
+    }
+
+    // 화면 초기화
+    clear();
+    refresh();
+}
+
 // 단어 데이터베이스
 const char *game_wordDB[] = {
     "apple", "banana", "cherry", "dragon", "elephant",
@@ -101,7 +171,7 @@ int game_score = 0;                  // 점수
 int game_level = 1;                  // 레벨
 int game_word_speed = 1;             // 단어 하강 속도
 int game_word_interval = 2;          // 단어 생성 간격 (프레임 수)
-int game_frame_delay = 1200000;      // 프레임 대기 시간 (500ms)
+int game_frame_delay = 1000000;      // 프레임 대기 시간 (500ms -> 500,000 us)
 
 // 입력 처리 관련
 char game_typingText[GAME_MAX_WORD_LENGTH] = {0};
@@ -408,6 +478,9 @@ int main() {
     keypad(stdscr, TRUE);
     nodelay(stdscr, FALSE); // 블로킹 모드로 설정
 
+    // 시작화면 함수 호출
+    show_start_page();
+
     // 창 초기화 함수 호출
     initialize_windows();
 
@@ -570,7 +643,7 @@ void run_game(int game_duration) {
     game_level = 1;
     game_word_speed = 1;
     game_word_interval = 2;
-    game_frame_delay = 1200000;
+    game_frame_delay = 1000000;
 
     // 입력 처리 관련
     memset(game_typingText, 0, sizeof(game_typingText));
@@ -882,7 +955,7 @@ void *game_game_thread_func(void *arg) {
         }
 
         // 속도 조절 (프레임당 대기 시간)
-        usleep(game_frame_delay);
+        usleep(game_frame_delay); // 500,000 us (0.5초)
     }
 
     return NULL;
