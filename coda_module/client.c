@@ -16,7 +16,12 @@ int main() {
     int sock = 0;
     struct sockaddr_in serv_addr;
     char buffer[1024] = {0};
-
+    /*
+     * 소켓 생성 및 설정
+     * 설명: TCP 소켓을 생성하고 서버 주소와 포트를 설정함
+     * 입력: 없음
+     * 출력: 소켓 생성 성공 시 디스크립터 저장, 실패 시 -1 반환
+     */
     if ((sock = socket(AF_INET, SOCK_STREAM, 0)) < 0) {
         printf("\n소켓 생성 오류\n");
         return -1;
@@ -24,7 +29,12 @@ int main() {
 
     serv_addr.sin_family = AF_INET;
     serv_addr.sin_port = htons(PORT);
-
+    /*
+     * 서버 주소 변환
+     * 설명: 문자열 형태의 IP 주소를 네트워크 바이트 순서로 변환
+     * 입력: 로컬호스트 주소
+     * 출력: 변환 성공 시 0 이상 반환, 실패 시 -1 반환
+     */
     if (inet_pton(AF_INET, "127.0.0.1", &serv_addr.sin_addr) <= 0) {
         printf("\n잘못된 주소/ 주소를 지원하지 않음\n");
         return -1;
@@ -37,7 +47,12 @@ int main() {
     noecho();
     cbreak();
     keypad(stdscr, TRUE);
-    //연결 요청
+    /*
+     * 서버 연결 요청
+     * 설명: 소켓을 통해 서버와 연결을 시도
+     * 입력: 서버 주소와 포트 정보
+     * 출력: 연결 성공 시 0 반환, 실패 시 -1 반환
+     */
     if (connect(sock, (struct sockaddr *)&serv_addr, sizeof(serv_addr)) < 0) {
         endwin();
         perror("\n연결 실패");
@@ -84,7 +99,13 @@ int main() {
     //화면 중앙에 대기 문구 출력
     mvprintw(LINES / 2, (COLS - strlen("서버가 시작되기를 기다리는 중...")) / 2, "서버가 시작되기를 기다리는 중...");
     refresh();
-    //서버로부터 값 읽은 후 함수 실행
+    //서버로부터 값 읽은 후 정보에 따른 처리
+    /*
+     * 서버 응답 처리 루프
+     * 설명: 서버로부터 데이터를 읽고 클라이언트에 반영
+     * 입력: 서버로부터 받은 메시지
+     * 출력: (필요한 경우) 사용자 입력 처리 및 서버로 메시지 전송 
+     */
     while (1) {
         int valread = read(sock, buffer, 1023);
         if (valread > 0) {
